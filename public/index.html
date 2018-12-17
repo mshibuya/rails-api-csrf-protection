@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CSRF protection demo</title>
+  <script src="https://unpkg.com/vue@2.5.21/dist/vue.js"></script>
+  <script src="https://unpkg.com/axios@0.18.0/dist/axios.js"></script>
+</head>
+<body>
+<div id="app">
+  <div><button v-on:click="login">Login</button></div>
+
+  <div><button v-on:click="get">GET</button></div>
+
+  <div>
+    <form v-on:submit.prevent="post">
+      <input type="text" v-model="text" />
+      <button type="submit">POST</button>
+    </form>
+    <p>Response: {{ response }}</p>
+  </div>
+
+  <div>
+    <p>CSRF Token: {{ csrfToken }}</p>
+    <button type="submit" v-on:click="clearToken">clear Token</button>
+  </div>
+</div>
+
+<script>
+    var http = axios.create();
+    http.interceptors.response.use(function (response) {
+        var token = response.headers['x-csrf-token'];
+        if (token) {
+            // save token in localStorage for later use
+            app.csrfToken = token;
+            window.localStorage.setItem('csrf-token', token);
+        }
+        return response;
+    }, function (error) {});
+    http.interceptors.request.use(function (config) {
+        var token = window.localStorage.getItem('csrf-token');
+        config.headers['X-CSRF-Token'] = token;
+        return config;
+    }, function (error) {});
+
+    var app = new Vue({
+        el: '#app',
+        data: {
+            csrfToken: window.localStorage.getItem('csrf-token'),
+            text: '',
+            response: '-'
+        },
+        methods: {
+            login: function () {
+                http.post('/users/sign_in', {
+                    user: {
+                        email: 'username@example.com',
+                        password: 'password'
+                    }
+                }, {});
+            },
+            get: function () {
+                http.get('/get');
+            },
+            post: function () {
+                http.post('/post', {
+                    top: {text: this.text}
+                }, {}).then(function (response) {
+                    app.response = response.data.text;
+                });
+            },
+            clearToken: function () {
+                window.localStorage.removeItem('csrf-token');
+                this.csrfToken = '-';
+            }
+        }
+    });
+</script>
+</body>
+</html>
